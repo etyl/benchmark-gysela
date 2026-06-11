@@ -108,7 +108,15 @@ class Dataset(BaseDataset):
             out = run_simulation(
                 config, n_iter=min(n_iter, n_ref), initial_fields=fr
             )
-            return trajectory_diff(tokam_trajectory(out), reference)
+            result = {
+                f"{key}_gt": reference[key]
+                for key in reference if key != "time"
+            }
+            result.update({
+                f"{key}_comp": tokam_trajectory(out)[key]
+                for key in reference if key != "time"
+            })
+            return result
 
         return dict(
             fields=fields, moments_fn=moments_fn, restart_fn=restart_fn

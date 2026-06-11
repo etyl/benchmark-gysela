@@ -9,3 +9,4 @@ __pycache__/
 !/data/landau2X2V/configs/*
 /outputs/
 /GYSELALIBXX_*
+.vscode

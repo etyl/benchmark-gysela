@@ -136,7 +136,15 @@ class Dataset(BaseDataset):
             comp = landau_restart_trajectory(
                 config, frame_h5, np.asarray(fr["fdistribu"]), mesh,
                 n_iter=min(n_iter, n_ref), n_ranks=self.n_ranks, **run_kwargs)
-            return trajectory_diff(comp, reference)
+            result = {
+                f"{key}_gt": reference[key]
+                for key in reference if key != "time"
+            }
+            result.update({
+                f"{key}_comp": comp[key]
+                for key in reference if key != "time"
+            })
+            return result
 
         return dict(
             fields=fields, moments_fn=moments_fn, restart_fn=restart_fn)

@@ -7,7 +7,7 @@
 # restart_n_iter is the comparison horizon; it must be <= the dataset's
 # restart_n_iter_ref (the horizon of the precomputed reference restart).
 objective:
-  - Physics Compression[restart_n_iter=[10,50]]
+  - Physics Compression[restart_n_iter=10]
 
 dataset:
   - Simulated
@@ -21,5 +21,8 @@ dataset:
   # - Landau2X2V[n_iter_init=10,restart_n_iter_ref=10,n_ranks=4,launcher=/abs/path/to/benchmark_gysela/landau_docker_launch.sh]
 
 solver:
-  - noise[noise_level=[1e-1,1e-3,1e-5]]
-  - wavelet[compression_ratio=[2,10,50],wavelet=db2]
+  noise:
+    noise_level: [1e-1]
+  wavelet:
+    compression_ratio: [2]
+    wavelet: db2
