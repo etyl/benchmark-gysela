@@ -19,7 +19,11 @@ PDI="${GYSELA_PDI:-/opt/gysela/pdi_out.yaml}"
 
 exec docker run --rm \
     --user "$(id -u):$(id -g)" \
+    -e OMP_PROC_BIND=spread \
+    -e OMP_PLACES=threads \
     -v "${work_dir}:/work" \
     --workdir "/work" \
     "${IMAGE}" \
-    mpirun --allow-run-as-root -n "${n_ranks}" "${BIN}" "${config}" "${PDI}"
+    mpirun --allow-run-as-root -n "${n_ranks}" --bind-to none \
+        -x OMP_PROC_BIND -x OMP_PLACES -x OMP_NUM_THREADS \
+        "${BIN}" "${config}" "${PDI}"

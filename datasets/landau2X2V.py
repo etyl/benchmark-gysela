@@ -7,7 +7,7 @@ from benchopt.config import get_data_path
 
 from benchmark_utils.landau import (
     landau_moments, read_mesh, source_frame, generate_landau_frame,
-    landau_restart_trajectory, DEFAULT_BINARY, DEFAULT_PDI,
+    landau_restart_trajectory, DEFAULT_BINARY, DEFAULT_PDI, DEFAULT_LAUNCHER
 )
 from benchmark_utils.storage import dump_trajectory, load_trajectory
 
@@ -27,12 +27,12 @@ class Dataset(BaseDataset):
         # Horizon of the precomputed uncompressed-restart reference. Objective
         # restart_n_iter must be <= this value.
         "restart_n_iter_ref": [10],
-        "n_ranks": [4],
+        "n_ranks": [1],
         "base_config": ["params.yaml"],
         # How to run the mini-app. Defaults to the shipped docker wrapper
         # (resolved relative to the benchmark), which runs it in the baked
         # image; set to "" to run mpirun directly (benchopt inside that image).
-        "launcher": ["landau_docker_launch.sh"],
+        "launcher": [DEFAULT_LAUNCHER],
         "binary": [DEFAULT_BINARY],
         "pdi": [DEFAULT_PDI],
     }
@@ -42,7 +42,7 @@ class Dataset(BaseDataset):
     test_parameters = {
         "n_iter_init": [1],
         "restart_n_iter_ref": [1],
-        "n_ranks": [2],
+        "n_ranks": [1],
         "base_config": ["params.yaml"],
     }
     requirements = ["h5py", "pyyaml"]

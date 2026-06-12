@@ -29,6 +29,7 @@ import h5py
 import numpy as np
 import yaml
 
+DEFAULT_LAUNCHER = pathlib.Path(__file__).resolve().parent.parent / "landau_docker_launch.sh"
 # Default in-image locations of the baked mini-app (see Dockerfile). Used for
 # the direct (no-launcher) path when benchopt runs inside that image.
 DEFAULT_BINARY = "/opt/gysela/compression_app"
@@ -165,16 +166,6 @@ def _run_landau(base_config, work_dir, *, nbiter, restart_file="none",
     return sorted(work_dir.glob("GYSELALIBXX_[0-9]*.h5"))
 
 
-def _h5_readable(path, dataset_name="fdistribu") -> bool:
-    """Return True iff ``path`` is a readable HDF5 file with ``dataset_name``."""
-    try:
-        with h5py.File(path, "r") as h5:
-            _ = h5[dataset_name].shape
-        return True
-    except Exception:
-        return False
-
-
 def generate_landau_frame(base_config, out_dir, *, n_iter, n_ranks=4,
                           launcher="", binary=DEFAULT_BINARY, pdi=DEFAULT_PDI):
     """Cold-start the mini-app for ``n_iter`` steps; cache, return the frame.
@@ -184,15 +175,6 @@ def generate_landau_frame(base_config, out_dir, *, n_iter, n_ranks=4,
     """
     out_dir = pathlib.Path(out_dir)
     diags = sorted(out_dir.glob("GYSELALIBXX_[0-9]*.h5"))
-    if diags and not _h5_readable(diags[-1]):
-        import warnings
-        warnings.warn(
-            f"Cached frame {diags[-1]} is unreadable (corrupted?); "
-            "deleting cached run and re-generating."
-        )
-        for f in out_dir.glob("GYSELALIBXX_*.h5"):
-            f.unlink()
-        diags = []
     if not diags:
         diags = _run_landau(
             base_config, out_dir, nbiter=n_iter, nb_restart=0, n_ranks=n_ranks,
