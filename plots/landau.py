@@ -17,7 +17,9 @@ class Plot(BasePlot):
             return []
 
         plots = []
-        df_filter = df.query(f"dataset_name == '{dataset}' and solver_name == '{solver}'")
+        df_filter = df[
+            (df["dataset_name"] == dataset) & (df["solver_name"] == solver)
+        ]
 
         if metric == "total_energy":
             metric = "energy"

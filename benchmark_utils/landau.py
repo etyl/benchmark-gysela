@@ -31,7 +31,9 @@ import yaml
 
 # Shipped docker wrapper; pick the script matching the host OS (PowerShell on
 # Windows, POSIX shell elsewhere). _run_landau invokes each via its interpreter.
-DEFAULT_LAUNCHER = (
+# Kept as a str: it is a benchopt parameter, and Path objects cannot be
+# stored in (nor safely read back from) the results parquet files.
+DEFAULT_LAUNCHER = str(
     pathlib.Path(__file__).resolve().parent.parent
     / ("landau_docker_launch.ps1" if os.name == "nt"
        else "landau_docker_launch.sh"))

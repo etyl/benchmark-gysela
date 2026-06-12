@@ -12,8 +12,11 @@ class WaveletCompressor:
         self.level = level
         self.mode = mode
 
-    def _threshold_coeffs(self, coeffs):
-        coeff_array, coeff_slices, coeff_shapes = pywt.ravel_coeffs(coeffs)
+    def _threshold_coeffs(self, coeffs, axes=None):
+        coeff_array, coeff_slices, coeff_shapes = pywt.ravel_coeffs(
+            coeffs, axes=axes
+        )
+        coeff_array = coeff_array.copy()
 
         keep_fraction = float(
             np.clip(1.0 / self.compression_ratio, 0.0, 1.0)
@@ -36,11 +39,15 @@ class WaveletCompressor:
     def compress_reconstruct(self, x: np.ndarray) -> np.ndarray:
         """Return the wavelet-compressed reconstruction of ``x``."""
         x = np.asarray(x)
+        axes = [ax for ax, size in enumerate(x.shape) if size > 1]
         coeffs = pywt.wavedecn(
             x, wavelet=self.wavelet, level=self.level, mode=self.mode,
+            axes=axes,
         )
-        coeffs = self._threshold_coeffs(coeffs)
-        x_rec = pywt.waverecn(coeffs, wavelet=self.wavelet, mode=self.mode)
+        coeffs = self._threshold_coeffs(coeffs, axes=axes)
+        x_rec = pywt.waverecn(
+            coeffs, wavelet=self.wavelet, mode=self.mode, axes=axes,
+        )
         # waverecn may pad odd-sized axes; crop back to the input shape.
         x_rec = x_rec[tuple(slice(0, s) for s in x.shape)]
         return x_rec.astype(x.dtype, copy=False)
