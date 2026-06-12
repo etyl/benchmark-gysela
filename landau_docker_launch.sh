@@ -6,9 +6,6 @@
 #
 #   landau_docker_launch.sh <n_ranks> <config> <work_dir>
 #
-# The work dir is mounted at its same host path so the absolute paths in the
-# run config resolve identically inside. The container runs as the current
-# host user (outputs not root-owned). Overridable via env:
 #   GYSELA_IMAGE (default gysela-compression:latest)
 #   GYSELA_BIN   (default /opt/gysela/compression_app)
 #   GYSELA_PDI   (default /opt/gysela/pdi_out.yaml)
@@ -21,7 +18,7 @@ BIN="${GYSELA_BIN:-/opt/gysela/compression_app}"
 PDI="${GYSELA_PDI:-/opt/gysela/pdi_out.yaml}"
 
 exec docker run --rm \
-    --user ":$(id -g)" \
+    --user "$(id -u):$(id -g)" \
     -v "${work_dir}:/work" \
     --workdir "/work" \
     "${IMAGE}" \

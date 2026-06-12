@@ -3,17 +3,18 @@ from benchopt import BasePlot
 
 class Plot(BasePlot):
 
-    name = "Tokam Conservation"
+    name = "Landau Conservation"
     type = "scatter"
     options = {
-        "metric": ["mass", "total_energy", "kinetic_energy", "thermal_energy"],
+        "metric": ["momentum_x", "momentum_y", "momentum_norm", "potential_energy"],
+        "relative": [True, False],
         "dataset": ...,
         "solver": ...
     }
     requirements = ["matplotlib"]
 
-    def plot(self, df, metric, dataset, solver):
-        if not dataset.startswith("Tokam2D"):
+    def plot(self, df, metric, relative, dataset, solver):
+        if not dataset.startswith("Landau"):
             return []
 
         plots = []
@@ -42,9 +43,10 @@ class Plot(BasePlot):
         return plots
 
 
-    def get_metadata(self, df, metric, dataset, solver):
+    def get_metadata(self, df, relative, metric, dataset, solver):
+        ylabel = f"{metric} (relative)" if relative else metric
         return dict(
             title=f"{metric} with {solver}",
-            ylabel=metric,
+            ylabel=ylabel,
             xlabel="Simulation steps",
         )

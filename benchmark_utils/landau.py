@@ -159,9 +159,20 @@ def _run_landau(base_config, work_dir, *, nbiter, restart_file="none",
         command = [os.path.expanduser(launcher), str(n_ranks), config_arg,
                    str(work_dir)]
     else:
-        command = ["mpirun", "-n", str(n_ranks), binary, config_arg, pdi]
+        command = ["mpirun", "-n", str(n_ranks), "--bind-to", "none",
+                   binary, config_arg, pdi]
     subprocess.run(command, cwd=work_dir, check=True, env=os.environ.copy())
     return sorted(work_dir.glob("GYSELALIBXX_[0-9]*.h5"))
+
+
+def _h5_readable(path, dataset_name="fdistribu") -> bool:
+    """Return True iff ``path`` is a readable HDF5 file with ``dataset_name``."""
+    try:
+        with h5py.File(path, "r") as h5:
+            _ = h5[dataset_name].shape
+        return True
+    except Exception:
+        return False
 
 
 def generate_landau_frame(base_config, out_dir, *, n_iter, n_ranks=4,
@@ -169,10 +180,19 @@ def generate_landau_frame(base_config, out_dir, *, n_iter, n_ranks=4,
     """Cold-start the mini-app for ``n_iter`` steps; cache, return the frame.
 
     Returns ``(frame_h5, initstate_h5)``. A completed run in ``out_dir`` is
-    reused.
+    reused unless the cached frame file is unreadable (e.g. corrupted write).
     """
     out_dir = pathlib.Path(out_dir)
     diags = sorted(out_dir.glob("GYSELALIBXX_[0-9]*.h5"))
+    if diags and not _h5_readable(diags[-1]):
+        import warnings
+        warnings.warn(
+            f"Cached frame {diags[-1]} is unreadable (corrupted?); "
+            "deleting cached run and re-generating."
+        )
+        for f in out_dir.glob("GYSELALIBXX_*.h5"):
+            f.unlink()
+        diags = []
     if not diags:
         diags = _run_landau(
             base_config, out_dir, nbiter=n_iter, nb_restart=0, n_ranks=n_ranks,

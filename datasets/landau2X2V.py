@@ -9,7 +9,6 @@ from benchmark_utils.landau import (
     landau_moments, read_mesh, source_frame, generate_landau_frame,
     landau_restart_trajectory, DEFAULT_BINARY, DEFAULT_PDI,
 )
-from benchmark_utils.metrics import trajectory_diff
 from benchmark_utils.storage import dump_trajectory, load_trajectory
 
 
