@@ -1,0 +1,14 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+
+benchopt
+numpy
+matplotlib
+h5py
+h5netcdf
+pyyaml
+jax[cuda13]
+torch
+tqdm
+pywavelets
+tokam2d[cpu] @ git+https://github.com/tommoral/tokam2d.git@ENH_package_tokam2d
+torch-inr @ git+https://github.com/etyl/torch-inr.git

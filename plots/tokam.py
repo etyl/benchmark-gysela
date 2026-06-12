@@ -10,7 +10,6 @@ class Plot(BasePlot):
         "dataset": ...,
         "solver": ...
     }
-    requirements = ["matplotlib"]
 
     def plot(self, df, metric, dataset, solver):
         if not dataset.startswith("Tokam2D"):

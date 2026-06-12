@@ -29,7 +29,12 @@ import h5py
 import numpy as np
 import yaml
 
-DEFAULT_LAUNCHER = pathlib.Path(__file__).resolve().parent.parent / "landau_docker_launch.sh"
+# Shipped docker wrapper; pick the script matching the host OS (PowerShell on
+# Windows, POSIX shell elsewhere). _run_landau invokes each via its interpreter.
+DEFAULT_LAUNCHER = (
+    pathlib.Path(__file__).resolve().parent.parent
+    / ("landau_docker_launch.ps1" if os.name == "nt"
+       else "landau_docker_launch.sh"))
 # Default in-image locations of the baked mini-app (see Dockerfile). Used for
 # the direct (no-launcher) path when benchopt runs inside that image.
 DEFAULT_BINARY = "/opt/gysela/compression_app"
@@ -157,8 +162,19 @@ def _run_landau(base_config, work_dir, *, nbiter, restart_file="none",
     # filename in the config is likewise relative (see landau_restart_*).
     config_arg = run_cfg.name
     if launcher:
-        command = [os.path.expanduser(launcher), str(n_ranks), config_arg,
-                   str(work_dir)]
+        launcher = os.path.expanduser(launcher)
+        command = [launcher, str(n_ranks), config_arg, str(work_dir)]
+        # Windows cannot exec a script directly (CreateProcess only runs real
+        # Win32 images, hence WinError 193; there is no shebang support), so
+        # run it through its interpreter: PowerShell for .ps1, bash (e.g. Git
+        # Bash / WSL) for a POSIX .sh.
+        if os.name == "nt":
+            low = launcher.lower()
+            if low.endswith(".ps1"):
+                command = ["powershell", "-NoProfile", "-ExecutionPolicy",
+                           "Bypass", "-File"] + command
+            elif low.endswith(".sh"):
+                command = ["bash"] + command
     else:
         command = ["mpirun", "-n", str(n_ranks), "--bind-to", "none",
                    binary, config_arg, pdi]

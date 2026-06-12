@@ -10,7 +10,7 @@ objective:
   - Physics Compression[restart_n_iter=100]
 
 dataset:
-  - Tokam2D[n_iter_init=100,restart_n_iter_ref=100]
+  # - Tokam2D[n_iter_init=100,restart_n_iter_ref=100]
   # Landau runs the compiled C++/MPI mini-app inside the baked docker image
   # (build it once: docker build -f benchmark_gysela/Dockerfile -t
   # gysela-compression gysela-mini-app_io). From the host, set `launcher` to

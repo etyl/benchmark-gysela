@@ -11,7 +11,6 @@ class Plot(BasePlot):
         "dataset": ...,
         "solver": ...
     }
-    requirements = ["matplotlib"]
 
     def plot(self, df, metric, relative, dataset, solver):
         if not dataset.startswith("Landau"):
