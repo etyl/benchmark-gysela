@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torch_inr import UniformSampler, FinerLayer, NoiseEncoding, get_coords
 from tqdm import tqdm
+import numpy as np
 
 
 class Solver(BaseSolver):
@@ -17,7 +18,7 @@ class Solver(BaseSolver):
         "decoding_layers": [2],
         "lr": [1e-3],
         "epochs": [1000],
-        "batch_size": [256000],
+        "batch_size": [128000],
         "device": ["cuda" if torch.cuda.is_available() else "cpu"],
     }
 
@@ -25,6 +26,12 @@ class Solver(BaseSolver):
         self.fields = {
             name: torch.as_tensor(arr, dtype=torch.float32)
             for name, arr in fields.items()
+        }
+        self.fields_min = {name: float(arr.min()) for name, arr in self.fields.items()}
+        self.fields_max = {name: float(arr.max()) for name, arr in self.fields.items()}
+        self.fields = {
+            name: 2 * (arr - self.fields_min[name]) / (self.fields_max[name] - self.fields_min[name]) - 1
+            for name, arr in self.fields.items()
         }
         self.input_shapes = {name: arr.shape for name, arr in self.fields.items()}
         self.samplers = {
@@ -49,8 +56,14 @@ class Solver(BaseSolver):
 
         for name, model in self.models.items():
             model = model.to(self.device)
-            self.fields[name] = self.fields[name].to(self.device)
-            for _ in tqdm(range(self.epochs), desc=f"Training INR on {name}", interval=1000):
+            self.samplers[name].to(self.device)
+            n_points = self.samplers[name].X.numel()
+            if self.batch_size >= n_points:
+                total_steps = self.epochs
+            else:
+                total_steps = int(self.epochs * n_points / self.batch_size)
+
+            for _ in tqdm(range(total_steps), desc=f"Training INR on {name}", mininterval=2):
                 self.optimizers[name].zero_grad()
                 batch = self.samplers[name].sample()
                 output = model(batch)
@@ -61,11 +74,18 @@ class Solver(BaseSolver):
             # Reconstruct field
             coords = get_coords(self.input_shapes[name])
             with torch.no_grad():
-                self.fields_rec[name] = model(coords.to(self.device)).cpu().numpy().reshape(self.input_shapes[name])
+                field_rec = np.empty((coords.shape[0], 1))
+                for k in range(0, coords.shape[0], self.batch_size):
+                    batch_coords = coords[k:k+self.batch_size]
+                    output = model(batch_coords.to(self.device)).cpu().numpy()
+                    field_rec[k:k+self.batch_size] = output
+                field_rec =  field_rec.reshape(self.input_shapes[name])
+                field_rec = (field_rec + 1) / 2 * (self.fields_max[name] - self.fields_min[name]) + self.fields_min[name]
+            self.fields_rec[name] = field_rec
 
             # Free GPU memory
             model.cpu()
-            self.fields[name] = self.fields[name].cpu()
+            self.samplers[name].to("cpu")
 
     def get_result(self) -> dict:
         return dict(fields_rec=self.fields_rec)

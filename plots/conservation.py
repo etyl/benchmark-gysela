@@ -3,19 +3,15 @@ from benchopt import BasePlot
 
 class Plot(BasePlot):
 
-    name = "Landau Conservation"
+    name = "Conservation curves"
     type = "scatter"
     options = {
-        "metric": ["momentum_x", "momentum_y", "momentum_norm", "potential_energy"],
-        "relative": [True, False],
+        "metric": ["momentum_x", "momentum_y", "momentum_norm", "potential_energy", "mass", "total_energy", "kinetic_energy", "thermal_energy"],
         "dataset": ...,
         "solver": ...
     }
 
-    def plot(self, df, metric, relative, dataset, solver):
-        if not dataset.startswith("Landau"):
-            return []
-
+    def plot(self, df, metric, dataset, solver):
         plots = []
         df_filter = df[
             (df["dataset_name"] == dataset) & (df["solver_name"] == solver)
@@ -29,6 +25,8 @@ class Plot(BasePlot):
 
         energy_gt = df_filter[f"objective_{metric}_gt"].values[0]
         energy_rec = df_filter[f"objective_{metric}_comp"].values[0]
+        if not isinstance(energy_rec, list) or not isinstance(energy_gt, list):
+            return []
         plots.append({
             "x": list(range(len(energy_gt))),
             "y": energy_rec,
@@ -43,11 +41,9 @@ class Plot(BasePlot):
         })
         return plots
 
-
-    def get_metadata(self, df, relative, metric, dataset, solver):
-        ylabel = f"{metric} (relative)" if relative else metric
+    def get_metadata(self, df, metric, dataset, solver):
         return dict(
             title=f"{metric} with {solver}",
-            ylabel=ylabel,
+            ylabel=metric,
             xlabel="Simulation steps",
         )
