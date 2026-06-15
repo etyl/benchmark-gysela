@@ -20,6 +20,8 @@ dataset:
   - Landau2X2V[n_iter_init=100,restart_n_iter_ref=100,n_ranks=1]
 
 solver:
+  pca:
+    n_components: [5, 20]
   noise:
     noise_level: [1e-1, 1e-3]
   wavelet:

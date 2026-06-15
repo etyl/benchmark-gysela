@@ -9,7 +9,6 @@ from tokam2d import run_simulation
 
 from benchmark_utils.tokam import tokam_moments, tokam_trajectory
 from benchmark_utils.storage import dump_trajectory, load_trajectory
-from benchmark_utils.metrics import trajectory_diff
 
 
 class Dataset(BaseDataset):
@@ -36,8 +35,7 @@ class Dataset(BaseDataset):
     }
     requirements = [
         "numpy",
-        "pip::tokam2d[cpu] @ "
-        "git+https://github.com/tommoral/tokam2d.git@ENH_package_tokam2d",
+        "pip::tokam2d[cpu]@git+https://github.com/tommoral/tokam2d.git@ENH_package_tokam2d",
     ]
     prepare_cache_ignore = ("dtype",)
 

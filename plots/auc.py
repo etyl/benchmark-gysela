@@ -8,10 +8,11 @@ class Plot(BasePlot):
     type = "scatter"
     options = {
         "metric": ["momentum_x", "momentum_y", "momentum_norm", "potential_energy", "mass", "total_energy", "kinetic_energy", "thermal_energy"],
+        "X": ["psnr", "momentum_x", "momentum_y", "momentum_norm", "mass"],
         "dataset": ...,
     }
 
-    def plot(self, df, metric, dataset):
+    def plot(self, df, metric, X, dataset):
         plots = []
 
         for solver in df["solver_name"].unique():
@@ -29,10 +30,13 @@ class Plot(BasePlot):
             energy_rec = df_filter[f"objective_{metric}_comp"].values[0]
 
             auc = np.sum(np.abs(np.array(energy_rec) - np.array(energy_gt)))
-            psnr = df_filter["objective_psnr"].values[0]
+            if X == "psnr":
+                x = df_filter["objective_psnr"].values[0]
+            else:
+                x = df_filter[f"objective_{X}_cons_err"].values[0]
 
             plots.append({
-                "x": [psnr],
+                "x": [x],
                 "y": [auc],
                 "label": solver,
                 **self.get_style(solver)
@@ -41,9 +45,9 @@ class Plot(BasePlot):
         return plots
 
 
-    def get_metadata(self, df, metric, dataset):
+    def get_metadata(self, df, metric, X, dataset):
         return dict(
             title=f"{metric} AUC with {dataset}",
             ylabel="Metric AUC over time",
-            xlabel="PSNR",
+            xlabel=X,
         )
