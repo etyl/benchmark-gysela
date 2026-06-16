@@ -19,6 +19,9 @@ class Solver(BaseSolver):
         "lr": [1e-3],
         "epochs": [1000],
         "batch_size": [128000],
+        "normalise": [False],
+        "regularisation": ["none"],
+        "lambda_regularisation": [1.0],
         "device": ["cuda" if torch.cuda.is_available() else "cpu"],
     }
 
@@ -58,6 +61,10 @@ class Solver(BaseSolver):
             model = model.to(self.device)
             self.samplers[name].to(self.device)
             n_points = self.samplers[name].X.numel()
+
+            target_mass = self.fields[name].sum().item()
+            mass = None
+
             if self.batch_size >= n_points:
                 total_steps = self.epochs
             else:
@@ -68,6 +75,22 @@ class Solver(BaseSolver):
                 batch = self.samplers[name].sample()
                 output = model(batch)
                 loss = self.samplers[name].compute_loss(output)
+
+                if self.regularisation == "mc":
+                    mass = (output.sum() / batch.shape[0]) * n_points
+                    loss += self.lambda_regularisation / batch.shape[0] * (mass - target_mass) ** 2
+                elif self.regularisation == "ema":
+                    current_mass = (output.sum() / batch.shape[0]) * n_points
+                    if mass is None:
+                        mass = current_mass
+                    else:
+                        mass = 0.9 * mass.detach() + 0.1 * current_mass
+                    loss += self.lambda_regularisation / batch.shape[0] * (mass - target_mass) ** 2
+                elif self.regularisation == "batch":
+                    target_mass_batch = self.samplers[name].get_target().sum().item()
+                    mass_batch = output.sum()
+                    loss += self.lambda_regularisation / batch.shape[0] * (mass_batch - target_mass_batch) ** 2
+
                 loss.backward()
                 self.optimizers[name].step()
 
@@ -81,6 +104,9 @@ class Solver(BaseSolver):
                     field_rec[k:k+self.batch_size] = output
                 field_rec =  field_rec.reshape(self.input_shapes[name])
                 field_rec = (field_rec + 1) / 2 * (self.fields_max[name] - self.fields_min[name]) + self.fields_min[name]
+
+                if self.normalise:
+                    field_rec = self.fields[name].sum().item() * field_rec / np.sum(field_rec)
             self.fields_rec[name] = field_rec
 
             # Free GPU memory

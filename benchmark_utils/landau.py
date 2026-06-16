@@ -111,7 +111,6 @@ def landau_moments(f, x, y, vx, vy, phi=None) -> dict:
     if phi is not None:
         potential = _potential_energy_from_phi(np.asarray(phi), x, y)
     else:
-        raise RuntimeError("phi is required to compute energy")
         potential = _potential_energy_from_density(density, x, y)
 
     return dict(mass=mass, momentum_x=momentum_x, momentum_y=momentum_y,

@@ -40,7 +40,8 @@ class Plot(BasePlot):
                 "x": list(range(len(energy_rec))),
                 "y": energy_rec,
                 "label": solver,
-                **self.get_style(solver)
+                "marker": self.get_style(solver)["marker"],
+                "color": self.get_style(solver.split('[')[0])["color"]
             })
         return plots
 

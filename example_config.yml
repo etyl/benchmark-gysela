@@ -28,7 +28,10 @@ solver:
     compression_ratio: [10, 100]
     wavelet: bior4.4
   inr:
-    hidden_size: [128]
+    hidden_size: [64]
     encoding_layers: [3]
     decoding_layers: [2]
-    epochs: [5000]
+    epochs: [500]
+    normalise: [False]
+    regularisation: ["none", "mc", "ema", "batch"]
+    device: cuda
