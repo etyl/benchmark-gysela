@@ -65,6 +65,22 @@ class Solver(BaseSolver):
             target_mass = self.fields[name].sum().item()
             mass = None
 
+            grad_target = None
+            if self.regularisation == "grad":
+                # spatial gradient of the target field, in the same [-1, 1] coord
+                # units the INR sees (coord = idx/shape * 2 - 1 -> step 2/shape)
+                shape = self.input_shapes[name]
+                field = self.fields[name]
+                # torch.gradient needs >=2 points along a dim; singleton dims
+                # (e.g. landau) get a zero gradient component instead.
+                dims = [i for i, s in enumerate(shape) if s >= 2]
+                spacing = [2.0 / shape[i] for i in dims]
+                computed = torch.gradient(field, spacing=spacing, dim=dims)
+                grads = [torch.zeros_like(field) for _ in shape]
+                for d, g in zip(dims, computed):
+                    grads[d] = g
+                grad_target = torch.stack(grads, dim=-1).reshape(-1, len(shape)).to(self.device)
+
             if self.batch_size >= n_points:
                 total_steps = self.epochs
             else:
@@ -73,23 +89,31 @@ class Solver(BaseSolver):
             for _ in tqdm(range(total_steps), desc=f"Training INR on {name}", mininterval=2):
                 self.optimizers[name].zero_grad()
                 batch = self.samplers[name].sample()
+                if self.regularisation == "grad":
+                    batch = batch.detach().requires_grad_(True)
                 output = model(batch)
                 loss = self.samplers[name].compute_loss(output)
 
                 if self.regularisation == "mc":
                     mass = (output.sum() / batch.shape[0]) * n_points
-                    loss += self.lambda_regularisation / batch.shape[0] * (mass - target_mass) ** 2
+                    loss += self.lambda_regularisation / batch.shape[0] * torch.abs(mass - target_mass)
                 elif self.regularisation == "ema":
                     current_mass = (output.sum() / batch.shape[0]) * n_points
                     if mass is None:
                         mass = current_mass
                     else:
-                        mass = 0.9 * mass.detach() + 0.1 * current_mass
-                    loss += self.lambda_regularisation / batch.shape[0] * (mass - target_mass) ** 2
+                        mass = 0.8 * mass.detach() + 0.2 * current_mass
+                    loss += self.lambda_regularisation / batch.shape[0] * torch.abs(mass - target_mass)
                 elif self.regularisation == "batch":
                     target_mass_batch = self.samplers[name].get_target().sum().item()
                     mass_batch = output.sum()
-                    loss += self.lambda_regularisation / batch.shape[0] * (mass_batch - target_mass_batch) ** 2
+                    loss += self.lambda_regularisation / batch.shape[0] * torch.abs(mass_batch - target_mass_batch)
+                elif self.regularisation == "grad":
+                    grad_inr = torch.autograd.grad(output.sum(), batch, create_graph=True)[0]
+                    gt = grad_target[(self.samplers[name].idx * self.samplers[name]._multipliers).sum(dim=1)]
+                    # match gradient direction only, not magnitude
+                    cos = torch.nn.functional.cosine_similarity(grad_inr, gt, dim=-1)
+                    loss += self.lambda_regularisation * (1 - cos).mean()
 
                 loss.backward()
                 self.optimizers[name].step()
