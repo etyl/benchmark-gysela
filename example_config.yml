@@ -33,6 +33,7 @@ solver:
     decoding_layers: [1]
     epochs: [1000]
     normalise: [False]
-    regularisation: ["grad", "none"]
+    predict_dims: [[], [0], [1], [2], [3]]
+    regularisation: ["none"]
     lambda_regularisation: [0.01]
     device: cuda

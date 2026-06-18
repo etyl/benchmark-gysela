@@ -1,7 +1,8 @@
 from benchopt import BaseSolver
 import torch
 import torch.nn as nn
-from torch_inr import UniformSampler, FinerLayer, NoiseEncoding, get_coords
+from torch_inr import UniformSampler, FinerLayer, NoiseEncoding, get_coords, get_input_shape
+from torch_inr.coords import get_output_dim
 from tqdm import tqdm
 import numpy as np
 
@@ -20,10 +21,19 @@ class Solver(BaseSolver):
         "epochs": [1000],
         "batch_size": [128000],
         "normalise": [False],
+        "predict_dims": [[]],
         "regularisation": ["none"],
         "lambda_regularisation": [1.0],
         "device": ["cuda" if torch.cuda.is_available() else "cpu"],
     }
+
+    def skip(self, fields: dict):
+        # predict_dims must exist in every field; Tokam2D is 2D, Landau2X2V is 4D
+        for d in self.predict_dims:
+            for arr in fields.values():
+                if d >= len(arr.shape):
+                    return True, f"predict_dim {d} out of range for a {len(arr.shape)}D field"
+        return False, None
 
     def set_objective(self, fields: dict):
         self.fields = {
@@ -38,14 +48,14 @@ class Solver(BaseSolver):
         }
         self.input_shapes = {name: arr.shape for name, arr in self.fields.items()}
         self.samplers = {
-            name: UniformSampler(self.fields[name], batch_size=self.batch_size)
+            name: UniformSampler(self.fields[name], batch_size=self.batch_size, predict_dims=self.predict_dims)
             for name, arr in self.fields.items()
         }
         self.models = {
             name: nn.Sequential(
-                NoiseEncoding(len(self.input_shapes[name]), self.hidden_size, n_layers=self.encoding_layers, sampler=self.samplers[name]),
+                NoiseEncoding(len(get_input_shape(self.input_shapes[name], self.predict_dims)), self.hidden_size, n_layers=self.encoding_layers, sampler=self.samplers[name]),
                 *[FinerLayer(self.hidden_size, self.hidden_size) for _ in range(self.decoding_layers-1)],
-                nn.Linear(self.hidden_size, 1),
+                nn.Linear(self.hidden_size, get_output_dim(self.input_shapes[name], self.predict_dims)),
             )
             for name, arr in self.fields.items()
         }
@@ -60,13 +70,17 @@ class Solver(BaseSolver):
         for name, model in self.models.items():
             model = model.to(self.device)
             self.samplers[name].to(self.device)
-            n_points = self.samplers[name].X.numel()
+            # number of input coordinates (predicted dims are network outputs,
+            # not sampled), so step count and mass scaling track the real grid
+            n_points = self.samplers[name].X_target.shape[0]
 
             target_mass = self.fields[name].sum().item()
             mass = None
 
             grad_target = None
             if self.regularisation == "grad":
+                # grad reg assumes full coord space; predict_dims path not wired in
+                assert not self.predict_dims, "grad regularisation not supported with predict_dims"
                 # spatial gradient of the target field, in the same [-1, 1] coord
                 # units the INR sees (coord = idx/shape * 2 - 1 -> step 2/shape)
                 shape = self.input_shapes[name]
@@ -119,14 +133,19 @@ class Solver(BaseSolver):
                 self.optimizers[name].step()
 
             # Reconstruct field
-            coords = get_coords(self.input_shapes[name])
+            shape = self.input_shapes[name]
+            coords = get_coords(shape, self.predict_dims)
+            output_dim = get_output_dim(shape, self.predict_dims)
             with torch.no_grad():
-                field_rec = np.empty((coords.shape[0], 1))
+                field_rec = np.empty((coords.shape[0], output_dim))
                 for k in range(0, coords.shape[0], self.batch_size):
                     batch_coords = coords[k:k+self.batch_size]
                     output = model(batch_coords.to(self.device)).cpu().numpy()
                     field_rec[k:k+self.batch_size] = output
-                field_rec =  field_rec.reshape(self.input_shapes[name])
+                # invert get_target: rows are in (input_dims + predict_dims) order
+                perm = [k for k in range(len(shape)) if k not in self.predict_dims] + list(self.predict_dims)
+                field_rec = field_rec.reshape([shape[k] for k in perm])
+                field_rec = np.transpose(field_rec, np.argsort(perm))
                 field_rec = (field_rec + 1) / 2 * (self.fields_max[name] - self.fields_min[name]) + self.fields_min[name]
 
                 if self.normalise:
