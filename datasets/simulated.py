@@ -31,7 +31,7 @@ class Dataset(BaseDataset):
 
             return dict(fields=fields, moments_fn=moments_fn, restart_fn=None)
 
-        # landau2X2V: single-species fdistribu[species, x, y, vx, vy].
+        # landau2X2V: per-species fdistribu_s{i}[x, y, vx, vy] (one species here).
         nx = ny = 16
         nvx = nvy = 17
         x = np.linspace(0.0, 2 * np.pi, nx)
@@ -43,11 +43,12 @@ class Dataset(BaseDataset):
         f = (perturb * maxwellian[None, None, :, :]).astype(np.float32)
         f = np.broadcast_to(f, (nx, ny, nvx, nvy)).copy()
         f += (1e-3 * rng.standard_normal(f.shape)).astype(np.float32)
-        fields = {"fdistribu": f[None]}  # leading species axis
+        # One field per species, matching landau2X2V (here a single species).
+        fields = {"fdistribu_s0": f}
 
         mesh = dict(x=x, y=y, vx=vx, vy=vy)
 
         def moments_fn(fr):
-            return landau_moments(fr["fdistribu"], **mesh)
+            return landau_moments(fr["fdistribu_s0"], **mesh)
 
         return dict(fields=fields, moments_fn=moments_fn, restart_fn=None)

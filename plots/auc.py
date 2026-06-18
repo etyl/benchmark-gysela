@@ -28,8 +28,15 @@ class Plot(BasePlot):
 
             energy_gt = df_filter[f"objective_{metric}_gt"].values[0]
             energy_rec = df_filter[f"objective_{metric}_comp"].values[0]
+            if not isinstance(energy_gt, list) or not isinstance(energy_rec, list):
+                continue
 
-            auc = np.sum(np.abs(np.array(energy_rec) - np.array(energy_gt)))
+            # the compressed restart can be shorter than the reference (e.g. it
+            # diverged early); compare over the overlap, like trajectory_diff.
+            gt = np.asarray(energy_gt, dtype=float)
+            rec = np.asarray(energy_rec, dtype=float)
+            n = min(gt.size, rec.size)
+            auc = float(np.sum(np.abs(rec[:n] - gt[:n])))
             if X == "psnr":
                 x = df_filter["objective_psnr"].values[0]
             else:

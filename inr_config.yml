@@ -1,0 +1,32 @@
+# Example benchopt run configuration.
+#   benchopt run benchmark_gysela --config example_config.yml
+#
+# Everything is configured through benchopt parameters (datasets, solver,
+# objective) — there is no separate benchmark config file.
+
+# restart_n_iter is the comparison horizon; it must be <= the dataset's
+# restart_n_iter_ref (the horizon of the precomputed reference restart).
+objective:
+  - Physics Compression[restart_n_iter=1]
+
+dataset:
+  # - Tokam2D[n_iter_init=100,restart_n_iter_ref=100]
+  # Landau runs the compiled C++/MPI mini-app inside the baked docker image
+  # (build it once: docker build -f benchmark_gysela/Dockerfile -t
+  # gysela-compression gysela-mini-app_io). From the host, set `launcher` to
+  # the shipped wrapper (absolute path, no spaces) that wraps each call in
+  # `docker run`. Leave `launcher` empty when benchopt itself runs inside that
+  # image. Parameter values must not contain spaces (benchopt name syntax).
+  - Landau2X2V[n_iter_init=100,restart_n_iter_ref=100,n_ranks=1]
+
+solver:
+  inr:
+    hidden_size: [128]
+    encoding_layers: [3]
+    decoding_layers: [1]
+    epochs: [1000]
+    normalise: [False]
+    predict_dims: [[0], [1], [2], [3]]
+    regularisation: ["none"]
+    lambda_regularisation: [0.01]
+    device: cuda

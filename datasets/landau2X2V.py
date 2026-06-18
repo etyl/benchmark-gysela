@@ -120,12 +120,19 @@ class Dataset(BaseDataset):
         run_kwargs = self._run_kwargs(config)
         frame_h5, mesh_h5, ref_path = self._ensure_prepared()
         mesh = read_mesh(mesh_h5)
-        fields = {"fdistribu": source_frame(frame_h5).astype(self.dtype)}
+        # Split the (n_species, Nx, Ny, Nvx, Nvy) frame into one field per
+        # species, so each is compressed independently.
+        frame = source_frame(frame_h5).astype(self.dtype)
+        fields = {f"fdistribu_s{i}": frame[i] for i in range(frame.shape[0])}
         reference = load_trajectory(ref_path)
         n_ref = self.restart_n_iter_ref
 
+        def stack_species(fr):
+            keys = sorted(k for k in fr if k.startswith("fdistribu_s"))
+            return np.stack([np.asarray(fr[k]) for k in keys], axis=0)
+
         def moments_fn(fr):
-            return landau_moments(fr["fdistribu"], **mesh)
+            return landau_moments(stack_species(fr), **mesh)
 
         def restart_fn(fr, n_iter):
             if n_iter > n_ref:
@@ -133,7 +140,7 @@ class Dataset(BaseDataset):
                       f"reference horizon {n_ref}; comparing over {n_ref} "
                       "steps. Increase restart_n_iter_ref to extend it.")
             comp = landau_restart_trajectory(
-                config, frame_h5, np.asarray(fr["fdistribu"]), mesh,
+                config, frame_h5, stack_species(fr), mesh,
                 n_iter=min(n_iter, n_ref), n_ranks=self.n_ranks, **run_kwargs)
             result = {
                 f"{key}_gt": reference[key]

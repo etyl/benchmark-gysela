@@ -1,6 +1,7 @@
 from benchopt import BaseObjective
 
 from benchmark_utils.metrics import static_field_metrics, moment_conservation
+from benchmark_utils.axis_metrics import field_axis_metrics
 
 
 class Objective(BaseObjective):
@@ -28,6 +29,8 @@ class Objective(BaseObjective):
         self.fields = fields
         self.moments_fn = moments_fn
         self.restart_fn = restart_fn
+        # Per-axis structural metrics of the reference (constant across solvers).
+        self._axis_metrics = field_axis_metrics(fields)
 
     def get_objective(self) -> dict:
         return dict(fields=self.fields)
@@ -37,6 +40,10 @@ class Objective(BaseObjective):
         results = static_field_metrics(self.fields, fields_rec)
         # benchopt minimises ``value``; use the mean MSE across fields.
         results["value"] = results["mse"]
+
+        # Per-axis structural metrics of the reference, so plots can correlate
+        # axis structure with the INR output axis (predict_dims).
+        results.update(self._axis_metrics)
 
         # Static moment-conservation error, when the dataset defines moments.
         if self.moments_fn is not None:
