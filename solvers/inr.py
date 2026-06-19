@@ -22,6 +22,7 @@ class Solver(BaseSolver):
         "batch_size": [128000],
         "normalise": [False],
         "predict_dims": [[]],
+        "output_regularisation": ["none"],
         "regularisation": ["none"],
         "lambda_regularisation": [1.0],
         "device": ["cuda" if torch.cuda.is_available() else "cpu"],
@@ -73,6 +74,9 @@ class Solver(BaseSolver):
             # number of input coordinates (predicted dims are network outputs,
             # not sampled), so step count and mass scaling track the real grid
             n_points = self.samplers[name].X_target.shape[0]
+
+            if self.predict_dims:
+                x_output = torch.linspace(-1, 1, self.samplers[name].X_target.shape[1]).to(self.device)
 
             target_mass = self.fields[name].sum().item()
             mass = None
@@ -128,6 +132,17 @@ class Solver(BaseSolver):
                     # match gradient direction only, not magnitude
                     cos = torch.nn.functional.cosine_similarity(grad_inr, gt, dim=-1)
                     loss += self.lambda_regularisation * (1 - cos).mean()
+
+                if self.output_regularisation == "mass" and self.predict_dims:
+                    target = self.samplers[name].get_target()
+                    loss += self.lambda_regularisation * torch.abs(
+                        output.sum(dim=1) - target.sum(dim=1)
+                    ).mean() / batch.shape[0]
+                if self.output_regularisation == "velocity" and self.predict_dims:
+                    target = self.samplers[name].get_target()
+                    loss += self.lambda_regularisation * torch.abs(
+                        (x_output * output).sum(dim=1) - (x_output * target).sum(dim=1)
+                    ).mean() / batch.shape[0]
 
                 loss.backward()
                 self.optimizers[name].step()
