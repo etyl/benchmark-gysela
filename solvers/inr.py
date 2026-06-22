@@ -131,18 +131,18 @@ class Solver(BaseSolver):
 
                 if self.regularisation == "mc":
                     mass = (output.sum() / batch.shape[0]) * n_points
-                    loss += self.lambda_regularisation / batch.shape[0] * torch.abs(mass - target_mass)
+                    loss += self.lambda_regularisation * (mass - target_mass)**2 / target_mass**2
                 elif self.regularisation == "ema":
                     current_mass = (output.sum() / batch.shape[0]) * n_points
                     if mass is None:
                         mass = current_mass
                     else:
                         mass = 0.8 * mass.detach() + 0.2 * current_mass
-                    loss += self.lambda_regularisation / batch.shape[0] * torch.abs(mass - target_mass)
+                    loss += self.lambda_regularisation * (mass - target_mass)**2 / target_mass**2
                 elif self.regularisation == "batch":
                     target_mass_batch = self.samplers[name].get_target().sum().item()
                     mass_batch = output.sum()
-                    loss += self.lambda_regularisation / batch.shape[0] * torch.abs(mass_batch - target_mass_batch)
+                    loss += self.lambda_regularisation * (mass_batch - target_mass_batch)**2 / target_mass_batch**2
                 elif self.regularisation == "grad":
                     grad_inr = torch.autograd.grad(output.sum(), batch, create_graph=True)[0]
                     gt = grad_target[(self.samplers[name].idx * self.samplers[name]._multipliers).sum(dim=1)]
