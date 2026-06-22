@@ -24,16 +24,20 @@ solver:
     n_components: [5, 20]
   noise:
     noise_level: [1e-1, 1e-3]
+    alpha: [0.0, 2.0, 3.0]
+    centered: [True, False]
   wavelet:
     compression_ratio: [10, 100]
     wavelet: bior4.4
-  inr:
-    hidden_size: [128]
-    encoding_layers: [3]
-    decoding_layers: [1]
-    epochs: [1000]
-    normalise: [False]
-    predict_dims: [[], [0], [1], [2], [3]]
-    regularisation: ["none"]
-    lambda_regularisation: [0.01]
-    device: cuda
+  # inr:
+  #   hidden_size: [128]
+  #   encoding_layers: [4]
+  #   decoding_layers: [1]
+  #   layer_modulation: [False]
+  #   epochs: [1000]
+  #   normalise: [False]
+  #   predict_dims: [[0], [2]]
+  #   regularisation: ["none"]
+  #   output_regularisation: ["velocity", "none", "mass"]
+  #   lambda_regularisation: [0.0001]
+  #   device: cuda
