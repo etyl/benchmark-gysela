@@ -17,6 +17,7 @@ class Solver(BaseSolver):
         "hidden_size": [128],
         "encoding_layers": [3],
         "decoding_layers": [2],
+        "layer_modulation": [True],
         "lr": [1e-3],
         "epochs": [1000],
         "batch_size": [128000],
@@ -53,15 +54,23 @@ class Solver(BaseSolver):
             for name, arr in self.fields.items()
         }
         self.models = {
-            name: nn.Sequential(
+            name: nn.ModuleList([
                 NoiseEncoding(len(get_input_shape(self.input_shapes[name], self.predict_dims)), self.hidden_size, n_layers=self.encoding_layers, sampler=self.samplers[name]),
                 *[FinerLayer(self.hidden_size, self.hidden_size) for _ in range(self.decoding_layers-1)],
                 nn.Linear(self.hidden_size, get_output_dim(self.input_shapes[name], self.predict_dims)),
-            )
+            ])
             for name, arr in self.fields.items()
         }
+        self.modulation_layers = None
+        if self.layer_modulation:
+            self.modulation_layers = {
+                name: nn.ModuleList([
+                    nn.Linear(self.hidden_size, self.hidden_size) for _ in range(self.encoding_layers + self.decoding_layers-1)
+                ])
+                for name, arr in self.fields.items()
+            }
         self.optimizers = {
-            name: torch.optim.Adam(model.parameters(), lr=self.lr)
+            name: torch.optim.Adam(model.parameters(), lr=self.lr, eps=1e-10)
             for name, model in self.models.items()
         }
 
@@ -70,6 +79,8 @@ class Solver(BaseSolver):
 
         for name, model in self.models.items():
             model = model.to(self.device)
+            if self.layer_modulation:
+                modulation_layers = self.modulation_layers[name].to(self.device)
             self.samplers[name].to(self.device)
             # number of input coordinates (predicted dims are network outputs,
             # not sampled), so step count and mass scaling track the real grid
@@ -109,7 +120,13 @@ class Solver(BaseSolver):
                 batch = self.samplers[name].sample()
                 if self.regularisation == "grad":
                     batch = batch.detach().requires_grad_(True)
-                output = model(batch)
+
+                for k in range(len(model)-1):
+                    batch = model[k](batch)
+                    if self.layer_modulation:
+                        batch = batch * modulation_layers[k](batch)
+                output = model[-1](batch)
+
                 loss = self.samplers[name].compute_loss(output)
 
                 if self.regularisation == "mc":
@@ -154,9 +171,15 @@ class Solver(BaseSolver):
             with torch.no_grad():
                 field_rec = np.empty((coords.shape[0], output_dim))
                 for k in range(0, coords.shape[0], self.batch_size):
-                    batch_coords = coords[k:k+self.batch_size]
-                    output = model(batch_coords.to(self.device)).cpu().numpy()
-                    field_rec[k:k+self.batch_size] = output
+                    batch = coords[k:k + self.batch_size].to(self.device)
+
+                    for j in range(len(model)-1):
+                        batch = model[j](batch)
+                        if self.layer_modulation:
+                            batch = batch * modulation_layers[j](batch)
+                    output = model[-1](batch).cpu().numpy()
+
+                    field_rec[k:k + self.batch_size] = output
                 # invert get_target: rows are in (input_dims + predict_dims) order
                 perm = [k for k in range(len(shape)) if k not in self.predict_dims] + list(self.predict_dims)
                 field_rec = field_rec.reshape([shape[k] for k in perm])
