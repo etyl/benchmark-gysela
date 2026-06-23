@@ -118,6 +118,25 @@ def landau_moments(f, x, y, vx, vy, phi=None) -> dict:
                 potential_energy=potential)
 
 
+def landau_moment_maps(f, x, y, vx, vy) -> dict:
+    """2D (x, y) density and momentum maps, integrated over velocity space.
+
+    Accepts a single-species (Nx, Ny, Nvx, Nvy) or multi-species
+    (n_species, ...) fdistribu; species are summed. ``x``/``y`` are accepted
+    for a uniform mesh-kwargs call signature but only the velocity mesh is used.
+    """
+    f = np.asarray(f, dtype=np.float64)
+    if f.ndim == 5:  # (n_species, Nx, Ny, Nvx, Nvy)
+        f = f.sum(axis=0)
+    vx, vy = np.asarray(vx), np.asarray(vy)
+    dvx, dvy = vx[1] - vx[0], vy[1] - vy[0]
+    density = f.sum(axis=(2, 3)) * dvx * dvy
+    momentum_x = np.tensordot(f.sum(axis=3) * dvy, vx, axes=([2], [0])) * dvx
+    momentum_y = np.tensordot(f.sum(axis=2) * dvx, vy, axes=([2], [0])) * dvy
+    return {"density": density, "momentum_x": momentum_x,
+            "momentum_y": momentum_y}
+
+
 # ---------------------------------------------------------------------------
 # HDF5 frame / mesh I/O
 # ---------------------------------------------------------------------------
@@ -134,6 +153,20 @@ def source_frame(source_h5, dataset_name="fdistribu") -> np.ndarray:
     """Read the uncompressed frame stored in ``source_h5``."""
     with h5py.File(source_h5, "r") as h5:
         return h5[dataset_name][:]
+
+
+def _is_readable_h5(fp, dataset_name="fdistribu") -> bool:
+    """True if ``fp`` opens as HDF5 and ``dataset_name`` is readable.
+
+    Guards against a corrupted cached write (e.g. a job killed mid-flush
+    leaves a truncated file with no HDF5 signature).
+    """
+    try:
+        with h5py.File(fp, "r") as h5:
+            h5[dataset_name].shape
+        return True
+    except (OSError, KeyError):
+        return False
 
 
 # ---------------------------------------------------------------------------
@@ -193,7 +226,9 @@ def generate_landau_frame(base_config, out_dir, *, n_iter, n_ranks=4,
     """
     out_dir = pathlib.Path(out_dir)
     diags = sorted(out_dir.glob("GYSELALIBXX_[0-9]*.h5"))
-    if not diags:
+    # Reuse only a cache whose frame actually reads back; a corrupt write
+    # (truncated file, missing HDF5 signature) means re-run, not crash later.
+    if not diags or not _is_readable_h5(diags[-1]):
         diags = _run_landau(
             base_config, out_dir, nbiter=n_iter, nb_restart=0, n_ranks=n_ranks,
             launcher=launcher, binary=binary, pdi=pdi)

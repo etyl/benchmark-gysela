@@ -1,6 +1,7 @@
 from benchopt import BaseObjective
 
-from benchmark_utils.metrics import static_field_metrics, moment_conservation
+from benchmark_utils.metrics import (
+    static_field_metrics, moment_conservation, downsample)
 from benchmark_utils.axis_metrics import field_axis_metrics
 
 
@@ -21,16 +22,24 @@ class Objective(BaseObjective):
         "restart_n_iter": [10],
     }
 
-    def set_data(self, fields, moments_fn=None, restart_fn=None):
+    def set_data(self, fields, moments_fn=None, restart_fn=None,
+                 field_maps_fn=None):
         # ``fields`` is the reference frame as a dict of named nD tensors.
         # ``moments_fn(fields) -> dict`` gives conserved quantities (optional).
         # ``restart_fn(fields_rec, n_iter) -> dict`` restarts the downstream
         # simulation and diffs it against the uncompressed restart (optional).
+        # ``field_maps_fn(fields) -> {name: 2D map}`` gives the displayable 2D
+        # fields for the Fields plot (defaults to the fields themselves, which
+        # is right for already-2D datasets like Tokam).
         self.fields = fields
         self.moments_fn = moments_fn
         self.restart_fn = restart_fn
+        self.field_maps_fn = field_maps_fn or (lambda fr: fr)
         # Per-axis structural metrics of the reference (constant across solvers).
         self._axis_metrics = field_axis_metrics(fields)
+        # Reference 2D maps (constant across solvers), stored once.
+        self._field_maps_gt = {
+            k: downsample(v) for k, v in self.field_maps_fn(fields).items()}
 
     def get_objective(self) -> dict:
         return dict(fields=self.fields)
@@ -58,6 +67,12 @@ class Objective(BaseObjective):
         # moment trajectory against the uncompressed restart.
         if self.restart_fn is not None:
             results.update(self.restart_fn(fields_rec, self.restart_n_iter))
+
+        # 2D field thumbnails (GT + reconstruction) for the Fields plot.
+        maps_rec = self.field_maps_fn(fields_rec)
+        for name, gt in self._field_maps_gt.items():
+            results[f"field_{name}_gt"] = gt
+            results[f"field_{name}_rec"] = downsample(maps_rec[name])
 
         return results
 

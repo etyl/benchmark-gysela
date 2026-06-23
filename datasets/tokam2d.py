@@ -45,11 +45,15 @@ class Dataset(BaseDataset):
 
     def _resolve_config(self):
         """Resolve base_config: use it if it exists, else look it up under
-        the shipped config folder get_data_path("tokam2d")/configs/."""
+        the shipped config folder <benchmark>/data/tokam2d/configs/.
+        Configs are committed in the repo, so resolve them against the
+        benchmark dir, not data_home (where generated data lands)."""
         given = pathlib.Path(self.base_config).expanduser()
         if given.exists():
             return given
-        candidate = get_data_path("tokam2d") / "configs" / self.base_config
+        benchmark_dir = pathlib.Path(__file__).resolve().parent.parent
+        candidate = (benchmark_dir / "data" / "tokam2d" / "configs"
+                     / self.base_config)
         if candidate.exists():
             return candidate
         raise RuntimeError(

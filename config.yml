@@ -1,3 +1,5 @@
+data_home: /data/parietal/store4/work/hvernina/gysela/benchmark
+
 plot_configs:
   Rate Distortion:
     comparison_Y: psnr

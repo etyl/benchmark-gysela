@@ -6,8 +6,9 @@ from benchopt import BaseDataset
 from benchopt.config import get_data_path
 
 from benchmark_utils.landau import (
-    landau_moments, read_mesh, source_frame, generate_landau_frame,
-    landau_restart_trajectory, DEFAULT_BINARY, DEFAULT_PDI, DEFAULT_LAUNCHER
+    landau_moments, landau_moment_maps, read_mesh, source_frame,
+    generate_landau_frame, landau_restart_trajectory,
+    DEFAULT_BINARY, DEFAULT_PDI, DEFAULT_LAUNCHER
 )
 from benchmark_utils.storage import dump_trajectory, load_trajectory
 
@@ -54,11 +55,15 @@ class Dataset(BaseDataset):
 
     def _resolve_config(self):
         """Resolve base_config: use it if it exists, else look it up under
-        the shipped config folder get_data_path("landau2X2V")/configs/."""
+        the shipped config folder <benchmark>/data/landau2X2V/configs/.
+        Configs are committed in the repo, so resolve them against the
+        benchmark dir, not data_home (where generated data lands)."""
         given = pathlib.Path(self.base_config).expanduser()
         if given.exists():
             return given
-        candidate = get_data_path("landau2X2V") / "configs" / self.base_config
+        benchmark_dir = pathlib.Path(__file__).resolve().parent.parent
+        candidate = (benchmark_dir / "data" / "landau2X2V" / "configs"
+                     / self.base_config)
         if candidate.exists():
             return candidate
         raise RuntimeError(
@@ -134,6 +139,9 @@ class Dataset(BaseDataset):
         def moments_fn(fr):
             return landau_moments(stack_species(fr), **mesh)
 
+        def field_maps_fn(fr):
+            return landau_moment_maps(stack_species(fr), **mesh)
+
         def restart_fn(fr, n_iter):
             if n_iter > n_ref:
                 print(f"[Landau2X2V] restart_n_iter={n_iter} exceeds the "
@@ -153,4 +161,5 @@ class Dataset(BaseDataset):
             return result
 
         return dict(
-            fields=fields, moments_fn=moments_fn, restart_fn=restart_fn)
+            fields=fields, moments_fn=moments_fn, restart_fn=restart_fn,
+            field_maps_fn=field_maps_fn)

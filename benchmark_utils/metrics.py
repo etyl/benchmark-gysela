@@ -35,6 +35,17 @@ def compression_ratio(fields_ref: dict, n_stored: int) -> float:
     return float(original / max(int(n_stored), 1))
 
 
+def downsample(arr: np.ndarray, cap: int = 256) -> np.ndarray:
+    """Stride a 2D array down to at most ``cap`` along each axis (float32).
+
+    Used to keep stored field thumbnails (and the parquet) small; visualisation
+    only needs a coarse preview. ponytail: plain striding, no anti-aliasing.
+    """
+    arr = np.asarray(arr)
+    sl = tuple(slice(None, None, max(1, s // cap)) for s in arr.shape)
+    return arr[sl].astype(np.float32)
+
+
 def static_field_metrics(fields_ref: dict, fields_rec: dict) -> dict:
     """Per-field MSE and PSNR, plus the mean MSE/PSNR across fields.
 

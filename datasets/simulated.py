@@ -2,7 +2,7 @@ import numpy as np
 from benchopt import BaseDataset
 
 from benchmark_utils.tokam import tokam_moments
-from benchmark_utils.landau import landau_moments
+from benchmark_utils.landau import landau_moments, landau_moment_maps
 
 
 class Dataset(BaseDataset):
@@ -51,4 +51,8 @@ class Dataset(BaseDataset):
         def moments_fn(fr):
             return landau_moments(fr["fdistribu_s0"], **mesh)
 
-        return dict(fields=fields, moments_fn=moments_fn, restart_fn=None)
+        def field_maps_fn(fr):
+            return landau_moment_maps(fr["fdistribu_s0"], **mesh)
+
+        return dict(fields=fields, moments_fn=moments_fn, restart_fn=None,
+                    field_maps_fn=field_maps_fn)
