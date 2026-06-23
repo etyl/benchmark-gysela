@@ -43,4 +43,5 @@ class Solver(BaseSolver):
             self.fields_rec[name] = arr + noise
 
     def get_result(self) -> dict:
-        return dict(fields_rec=self.fields_rec)
+        # Perturbation baseline: stores the full field, so no compression.
+        return dict(fields_rec=self.fields_rec, compression_ratio=1.0)

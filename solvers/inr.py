@@ -194,5 +194,15 @@ class Solver(BaseSolver):
             model.cpu()
             self.samplers[name].to("cpu")
 
+        # Stored representation: all network weights (+ modulation layers).
+        n_stored = sum(p.numel() for m in self.models.values()
+                       for p in m.parameters())
+        if self.layer_modulation:
+            n_stored += sum(p.numel() for m in self.modulation_layers.values()
+                            for p in m.parameters())
+        n_orig = sum(int(np.prod(s)) for s in self.input_shapes.values())
+        self.compression_ratio_ = float(n_orig / max(n_stored, 1))
+
     def get_result(self) -> dict:
-        return dict(fields_rec=self.fields_rec)
+        return dict(fields_rec=self.fields_rec,
+                    compression_ratio=self.compression_ratio_)

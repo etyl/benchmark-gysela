@@ -1,0 +1,28 @@
+plot_configs:
+  Rate Distortion:
+    comparison_Y: psnr
+    comparison_X: compression_ratio
+    comparison_dataset: Tokam2D[base_config=input_SOL_interchange_driftwave.yaml,dtype=float32,n_iter_init=100,restart_n_iter_ref=100]
+    plot_kind: comparison
+    scale: linear
+    with_quantiles: true
+    suboptimal_curve: false
+    relative_curve: false
+  Energy vs Momentum:
+    comparison_Y: potential_energy
+    comparison_X: momentum_norm
+    comparison_dataset: Landau2X2V[base_config=params.yaml,binary=/opt/gysela/compression_app,dtype=float32,launcher=/home/mind/hvernina/benchmark-gysela/landau_docker_launch.sh,n_iter_init=100,n_ranks=1,pdi=/opt/gysela/pdi_out.yaml,restart_n_iter_ref=100]
+    plot_kind: comparison
+    scale: loglog
+    with_quantiles: true
+    suboptimal_curve: false
+    relative_curve: false
+  Energy vs Mass:
+    comparison_Y: potential_energy
+    comparison_X: mass
+    comparison_dataset: Landau2X2V[base_config=params.yaml,binary=/opt/gysela/compression_app,dtype=float32,launcher=/home/mind/hvernina/benchmark-gysela/landau_docker_launch.sh,n_iter_init=100,n_ranks=1,pdi=/opt/gysela/pdi_out.yaml,restart_n_iter_ref=100]
+    plot_kind: comparison
+    scale: loglog
+    with_quantiles: true
+    suboptimal_curve: false
+    relative_curve: false

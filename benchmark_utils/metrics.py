@@ -22,6 +22,19 @@ def relative_error(ref: float, rec: float) -> float:
     return float(abs(rec - ref) / max(abs(ref), EPS))
 
 
+def compression_ratio(fields_ref: dict, n_stored: int) -> float:
+    """Logical compression ratio: original scalar count / stored scalar count.
+
+    Counts values rather than bytes, so it's comparable across methods
+    regardless of dtype/quantisation. ``n_stored`` is the number of scalars a
+    solver must persist to reconstruct (network weights, kept coefficients,
+    PCA factors, ...).
+    """
+    # ponytail: value count, not bytes — ignores float16/index overhead.
+    original = sum(int(np.prod(a.shape)) for a in fields_ref.values())
+    return float(original / max(int(n_stored), 1))
+
+
 def static_field_metrics(fields_ref: dict, fields_rec: dict) -> dict:
     """Per-field MSE and PSNR, plus the mean MSE/PSNR across fields.
 

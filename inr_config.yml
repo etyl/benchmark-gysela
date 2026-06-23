@@ -25,7 +25,7 @@ solver:
   noise:
     noise_level: [1e-1, 1e-3]
   wavelet:
-    compression_ratio: [10, 100]
+    quant_step: [0.1, 1.0]
     wavelet: bior4.4
   inr:
     hidden_size: [128]

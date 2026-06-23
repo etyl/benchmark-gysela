@@ -35,11 +35,14 @@ class Objective(BaseObjective):
     def get_objective(self) -> dict:
         return dict(fields=self.fields)
 
-    def evaluate_result(self, fields_rec: dict) -> dict:
+    def evaluate_result(self, fields_rec: dict, compression_ratio: float = 1.0) -> dict:
         # Static reconstruction quality, per field and averaged.
         results = static_field_metrics(self.fields, fields_rec)
         # benchopt minimises ``value``; use the mean MSE across fields.
         results["value"] = results["mse"]
+
+        # Storage savings reported by the solver (1.0 = no compression).
+        results["compression_ratio"] = float(compression_ratio)
 
         # Per-axis structural metrics of the reference, so plots can correlate
         # axis structure with the INR output axis (predict_dims).
@@ -60,4 +63,4 @@ class Objective(BaseObjective):
 
     def get_one_result(self) -> dict:
         # Identity reconstruction (no compression) as a trivial reference.
-        return dict(fields_rec=self.fields)
+        return dict(fields_rec=self.fields, compression_ratio=1.0)

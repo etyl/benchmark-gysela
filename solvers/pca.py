@@ -4,6 +4,8 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
+from benchmark_utils.metrics import compression_ratio
+
 
 class PCACompressor:
     """PCA compressor for GYSELA-style nD fields.
@@ -64,8 +66,8 @@ class PCACompressor:
             return X * scaler.scale_ + scaler.mean_
         raise RuntimeError(f"Unhandled normalisation: {self.normalisation}")
 
-    def compress_reconstruct(self, x: np.ndarray) -> np.ndarray:
-        """Return the PCA-compressed reconstruction of ``x``."""
+    def compress_reconstruct(self, x: np.ndarray):
+        """PCA reconstruction of ``x`` plus the number of scalars it stores."""
         x = np.asarray(x)
         original_shape, dtype = x.shape, x.dtype
 
@@ -88,7 +90,14 @@ class PCACompressor:
         if self.clip_nonnegative:
             X_approx = np.clip(X_approx, 0.0, None)
 
-        return X_approx.reshape(original_shape).astype(dtype, copy=False)
+        # Stored representation: per-sample coefficients + components + mean
+        # (+ z-score scaler stats when used).
+        n_stored = coefficients.size + model.components_.size + model.mean_.size
+        if scaler is not None:
+            n_stored += scaler.mean_.size + scaler.scale_.size
+
+        rec = X_approx.reshape(original_shape).astype(dtype, copy=False)
+        return rec, n_stored
 
 
 class Solver(BaseSolver):
@@ -116,10 +125,14 @@ class Solver(BaseSolver):
             clip_nonnegative=self.clip_nonnegative,
             n_feature_axes=self.n_feature_axes,
         )
-        self.fields_rec = {
-            name: compressor.compress_reconstruct(arr)
-            for name, arr in self.fields.items()
-        }
+        self.fields_rec = {}
+        n_stored = 0
+        for name, arr in self.fields.items():
+            rec, stored = compressor.compress_reconstruct(arr)
+            self.fields_rec[name] = rec
+            n_stored += stored
+        self.compression_ratio_ = compression_ratio(self.fields, n_stored)
 
     def get_result(self) -> dict:
-        return dict(fields_rec=self.fields_rec)
+        return dict(fields_rec=self.fields_rec,
+                    compression_ratio=self.compression_ratio_)
